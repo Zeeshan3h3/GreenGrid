@@ -2,7 +2,7 @@
 title: CanopyAI
 emoji: 🌲
 colorFrom: green
-colorTo: emerald
+colorTo: green
 sdk: gradio
 app_file: app.py
 pinned: false
