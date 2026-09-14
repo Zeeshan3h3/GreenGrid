@@ -7,13 +7,18 @@ from server import app as fastapi_app
 # ZeroGPU requires at least one function decorated with @spaces.GPU to pass startup checks
 @spaces.GPU
 def dummy_gpu_function():
-    pass
+    return "GPU awake"
 
 # 1. Create a dummy Gradio interface
 demo = gr.Blocks()
 with demo:
     gr.Markdown("# CanopyAI Backend is running.")
     gr.Markdown("The main frontend is served at the root URL (/) via FastAPI.")
+    
+    # We MUST bind the GPU function to a Gradio event, otherwise ZeroGPU ignores it
+    btn = gr.Button("Init", visible=False)
+    out = gr.Textbox(visible=False)
+    btn.click(fn=dummy_gpu_function, inputs=[], outputs=[out])
 
 # 2. Mount Gradio inside our existing FastAPI app
 app = gr.mount_gradio_app(fastapi_app, demo, path="/gradio")
