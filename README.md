@@ -1,3 +1,13 @@
+---
+title: CanopyAI
+emoji: 🌲
+colorFrom: green
+colorTo: emerald
+sdk: gradio
+app_file: app.py
+pinned: false
+---
+
 # CanopyAI: Dual-Model Forest Crown & Area Platform
 
 CanopyAI is an automated, high-performance platform for forest inventory, crown detection, and canopy area estimation. Designed for speed, memory efficiency, and a premium user experience, the platform processes drone orthomosaics to deliver actionable ecological metrics and exportable GIS deliverables.
