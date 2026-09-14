@@ -133,7 +133,7 @@ CUSTOM_CSS = """
 """
 
 with gr.Blocks(
-    title="CanopyAI — Automated Crown Detection & Canopy Estimator",
+    title="GreenGrid — Automated Crown Detection & Canopy Estimator",
     css=CUSTOM_CSS,
     theme=gr.themes.Soft(
         primary_hue="green",
@@ -146,7 +146,7 @@ with gr.Blocks(
     # Header
     gr.Markdown(
         """
-        # 🌲 CanopyAI
+        # 🌲 GreenGrid
         ### Automated Crown Detection & Canopy Area Estimation
         *Upload a drone orthomosaic GeoTIFF to detect individual trees (DeepForest RetinaNet) and estimate canopy coverage (Segformer MIT-B2)*
         """,
@@ -211,7 +211,7 @@ with gr.Blocks(
         """
         ---
         <center>
-        <b>CanopyAI</b> — Dual-Model Forest Inventory Platform | DeepForest (RetinaNet) + Restor OAM-TCD (Segformer MIT-B2)
+        <b>GreenGrid</b> — Dual-Model Forest Inventory Platform | DeepForest (RetinaNet) + Restor OAM-TCD (Segformer MIT-B2)
         <br>Built for hackathon judges who appreciate production-grade engineering 🏆
         </center>
         """
