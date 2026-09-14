@@ -134,13 +134,6 @@ CUSTOM_CSS = """
 
 with gr.Blocks(
     title="GreenGrid — Automated Crown Detection & Canopy Estimator",
-    css=CUSTOM_CSS,
-    theme=gr.themes.Soft(
-        primary_hue="green",
-        secondary_hue="emerald",
-        neutral_hue="slate",
-        font=gr.themes.GoogleFont("Inter"),
-    ),
 ) as demo:
 
     # Header
@@ -287,4 +280,12 @@ with gr.Blocks(
 
 
 # This is what Hugging Face Spaces looks for
-demo.launch()
+demo.launch(
+    css=CUSTOM_CSS,
+    theme=gr.themes.Soft(
+        primary_hue="green",
+        secondary_hue="emerald",
+        neutral_hue="slate",
+        font=gr.themes.GoogleFont("Inter"),
+    ),
+)
