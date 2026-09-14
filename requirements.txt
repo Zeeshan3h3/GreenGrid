@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-multipart
+geopandas
+rasterio
+shapely
+pyogrio
+deepforest
+transformers
+torch
+pillow
+matplotlib
+numpy
+pandas
+gradio

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CanopyAI — Automated Crown Detection & Canopy Estimator</title>
+    <meta name="description" content="Dual-model AI platform for tree crown detection and canopy area estimation using DeepForest RetinaNet and Restor OAM-TCD Segformer.">
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Inter font from Google Fonts (UI/UX Pro Max: "Spatial Clear" pairing) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        /* UI/UX Pro Max: "Plant Care Tracker" palette */
+                        primary:      { DEFAULT: '#15803D', light: '#22c55e', dark: '#166534' },
+                        secondary:    '#059669',
+                        accent:       '#D97706',
+                        background:   '#F0FDF4',
+                        foreground:   '#0F172A',
+                        card:         '#FFFFFF',
+                        cardfg:       '#0F172A',
+                        muted:        '#F0F7F3',
+                        mutedfg:      '#475569',
+                        border:       '#E2EFE7',
+                        ring:         '#15803D',
+                        mint:         '#A7F3D0',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #F0FDF4;
+            color: #0F172A;
+            font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+        }
+
+        /* Glassmorphism cards (light mode) */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid #E2EFE7;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(21, 128, 61, 0.06);
+            transition: all 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+        }
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(5, 150, 105, 0.12);
+            border-color: #A7F3D0;
+        }
+
+        /* KPI metric card accent border */
+        .kpi-accent {
+            border-bottom: 3px solid #15803D;
+        }
+
+        /* Fade-in animation */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Pulse glow on the status dot */
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #15803D;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(21, 128, 61, 0.4); }
+            50%      { box-shadow: 0 0 0 6px rgba(21, 128, 61, 0); }
+        }
+
+        /* File input styling */
+        input[type="file"]::file-selector-button {
+            background: #F0FDF4;
+            color: #15803D;
+            border: 1px solid #A7F3D0;
+            border-radius: 9999px;
+            padding: 6px 16px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background: #DCFCE7;
+            border-color: #15803D;
+        }
+
+        /* Slider thumb */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: #E2EFE7;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            background: #15803D;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(21, 128, 61, 0.3);
+            transition: transform 0.15s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #F0FDF4; }
+        ::-webkit-scrollbar-thumb { background: #A7F3D0; border-radius: 3px; }
+    </style>
+</head>
+
+<body class="min-h-screen">
+
+    <!-- ========== NAVBAR ========== -->
+    <nav class="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-md px-6 md:px-8 py-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <i data-lucide="leaf" class="w-4.5 h-4.5 text-white"></i>
+            </div>
+            <h1 class="text-lg font-bold tracking-tight text-foreground">
+                Canopy<span class="text-primary">AI</span>
+            </h1>
+        </div>
+        <div class="hidden sm:flex items-center gap-2 text-xs text-mutedfg">
+            <span class="status-dot"></span>
+            <span>Dual-Model Engine Active</span>
+        </div>
+    </nav>
+
+    <!-- ========== MAIN ========== -->
+    <main class="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+
+        <!-- ---- LEFT: Controls ---- -->
+        <aside class="lg:col-span-4 space-y-5">
+
+            <!-- Upload Panel -->
+            <div class="glass-card p-6">
+                <h2 class="text-base font-semibold text-foreground mb-5 flex items-center gap-2">
+                    <i data-lucide="upload-cloud" class="w-5 h-5 text-primary"></i>
+                    Upload Datasets
+                </h2>
+
+                <div class="space-y-4">
+                    <!-- GeoTIFF -->
+                    <div>
+                        <label class="block text-sm font-medium text-mutedfg mb-1.5">
+                            Orthomosaic (GeoTIFF) <span class="text-red-500">*</span>
+                        </label>
+                        <input type="file" id="img-upload" accept=".tif,.tiff"
+                               class="w-full text-sm text-mutedfg cursor-pointer">
+                    </div>
+
+                    <!-- KML -->
+                    <div>
+                        <label class="block text-sm font-medium text-mutedfg mb-1.5">
+                            Boundary (KML) <span class="text-xs text-gray-400">Optional</span>
+                        </label>
+                        <input type="file" id="kml-upload" accept=".kml"
+                               class="w-full text-sm text-mutedfg cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- Confidence Slider -->
+                <div class="mt-6">
+                    <label class="flex justify-between text-sm font-medium text-mutedfg mb-2">
+                        <span>Detection Confidence</span>
+                        <span id="conf-val" class="font-mono text-primary font-semibold">0.35</span>
+                    </label>
+                    <input type="range" id="conf-slider" min="0.1" max="0.9" step="0.05" value="0.35"
+                           class="w-full cursor-pointer">
+                </div>
+
+                <!-- Execute Button -->
+                <button id="run-btn"
+                        class="w-full mt-7 bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-xl
+                               shadow-md hover:shadow-lg transition-all duration-200 flex justify-center items-center gap-2.5
+                               active:scale-[0.98]">
+                    <i data-lucide="zap" class="w-5 h-5"></i>
+                    Execute Analysis
+                </button>
+            </div>
+
+            <!-- Legend Panel -->
+            <div class="glass-card p-5">
+                <h3 class="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <i data-lucide="info" class="w-4 h-4 text-primary"></i>
+                    Model Diagnostic Legend
+                </h3>
+                <div class="space-y-2 text-sm text-mutedfg">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-3.5 h-3.5 rounded-sm bg-green-400/60 border border-green-500/40"></span>
+                        <span>Segformer canopy mask (pixel-level)</span>
+                    </div>
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-3.5 h-3.5 rounded-sm border-2 border-primary"></span>
+                        <span>DeepForest tree crown box</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Architecture Panel -->
+            <div class="glass-card p-5">
+                <h3 class="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <i data-lucide="cpu" class="w-4 h-4 text-primary"></i>
+                    Architecture
+                </h3>
+                <div class="space-y-1.5 text-xs text-mutedfg leading-relaxed">
+                    <p><strong class="text-foreground">Model 1:</strong> DeepForest RetinaNet — individual tree crown detection via sliding-window object detection</p>
+                    <p><strong class="text-foreground">Model 2:</strong> Restor OAM-TCD Segformer — pixel-level canopy segmentation trained on Open Aerial Map data</p>
+                    <p><strong class="text-foreground">Pipeline:</strong> GeoTIFF → reproject → tile → dual inference → georeferenced GIS export</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ---- RIGHT: Results ---- -->
+        <section class="lg:col-span-8">
+
+            <!-- EMPTY STATE -->
+            <div id="empty-state" class="h-full flex flex-col items-center justify-center glass-card p-16 text-center min-h-[500px]">
+                <div class="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center mb-5">
+                    <i data-lucide="map" class="w-10 h-10 text-border"></i>
+                </div>
+                <p class="text-mutedfg text-base font-medium mb-1">No analysis running</p>
+                <p class="text-sm text-gray-400">Upload a GeoTIFF and click <strong class="text-primary">Execute Analysis</strong> to begin.</p>
+            </div>
+
+            <!-- LOADING STATE -->
+            <div id="loading" class="hidden h-full flex-col items-center justify-center glass-card p-16 text-center min-h-[500px]">
+                <i data-lucide="loader-2" class="w-12 h-12 text-primary animate-spin mb-5"></i>
+                <h3 class="text-lg font-bold text-foreground mb-2">Analyzing Canopy…</h3>
+                <p class="text-sm text-mutedfg">Running DeepForest RetinaNet & OAM-TCD Segformer</p>
+                <p class="text-xs text-gray-400 mt-2">This may take 15–30 seconds on CPU</p>
+            </div>
+
+            <!-- RESULTS STATE -->
+            <div id="results" class="hidden fade-in space-y-5">
+
+                <!-- KPI Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <!-- Stem Count -->
+                    <div class="glass-card p-5">
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <i data-lucide="trees" class="w-3.5 h-3.5 text-primary"></i>
+                            <p class="text-mutedfg text-xs uppercase tracking-wider font-semibold">Stem Count</p>
+                        </div>
+                        <p class="text-3xl font-extrabold text-foreground" id="val-count">--</p>
+                    </div>
+
+                    <!-- Canopy Area -->
+                    <div class="glass-card p-5 kpi-accent">
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <i data-lucide="scan" class="w-3.5 h-3.5 text-primary"></i>
+                            <p class="text-mutedfg text-xs uppercase tracking-wider font-semibold">Canopy Area</p>
+                        </div>
+                        <p class="text-3xl font-extrabold text-primary" id="val-area">--</p>
+                        <p class="text-xs text-mutedfg mt-1" id="val-area-m2">-- m²</p>
+                    </div>
+
+                    <!-- Coverage -->
+                    <div class="glass-card p-5">
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <i data-lucide="pie-chart" class="w-3.5 h-3.5 text-primary"></i>
+                            <p class="text-mutedfg text-xs uppercase tracking-wider font-semibold">Coverage</p>
+                        </div>
+                        <p class="text-3xl font-extrabold text-foreground" id="val-cover">--</p>
+                    </div>
+
+                    <!-- Density -->
+                    <div class="glass-card p-5">
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <i data-lucide="gauge" class="w-3.5 h-3.5 text-primary"></i>
+                            <p class="text-mutedfg text-xs uppercase tracking-wider font-semibold">Density</p>
+                        </div>
+                        <p class="text-2xl font-extrabold text-foreground mt-1" id="val-density">--</p>
+                        <p class="text-xs text-mutedfg mt-1" id="val-health">--</p>
+                    </div>
+                </div>
+
+                <!-- CO₂ + Carbon banner -->
+                <div class="glass-card p-4 flex items-center gap-4 kpi-accent">
+                    <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="cloud" class="w-5 h-5 text-primary"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-foreground">Estimated CO₂ Sequestration</p>
+                        <p class="text-2xl font-extrabold text-primary" id="val-carbon">-- tCO₂</p>
+                    </div>
+                </div>
+
+                <!-- Dual Model Viewer -->
+                <div class="glass-card p-2 relative overflow-hidden group">
+                    <img id="overlay-img" class="w-full h-auto rounded-xl" src="" alt="Dual-model canopy overlay">
+
+                    <!-- Floating legend badge -->
+                    <div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-lg text-xs flex gap-5 border border-border shadow-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 bg-green-400/60 rounded-sm border border-green-500/40"></span>
+                            <span class="text-mutedfg font-medium">Segformer Mask</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 border-2 border-primary rounded-sm"></span>
+                            <span class="text-mutedfg font-medium">RetinaNet Box</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Bar -->
+                <div class="glass-card p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                        <p class="text-sm font-semibold text-foreground flex items-center gap-2">
+                            <i data-lucide="package" class="w-4 h-4 text-primary"></i>
+                            GIS Deliverables Ready
+                        </p>
+                        <p class="text-xs text-mutedfg mt-0.5">Includes tree_inventory.csv, GeoJSON layers, overlay PNG, and summary metrics</p>
+                    </div>
+                    <a id="download-btn" href="#" download="forest_inventory_bundle.zip"
+                       class="flex-shrink-0 bg-primary hover:bg-primary-dark text-white font-semibold py-2.5 px-6 rounded-xl text-sm
+                              transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md active:scale-[0.98]">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        Download .ZIP
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ========== DOCUMENTATION ========== -->
+    <section class="max-w-7xl mx-auto px-4 md:px-8 mt-2 mb-10">
+        <div class="glass-card p-8 space-y-8">
+            <div>
+                <h2 class="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+                    <i data-lucide="book-open" class="w-6 h-6 text-primary"></i>
+                    Platform Documentation
+                </h2>
+                <p class="text-sm text-mutedfg leading-relaxed">
+                    CanopyAI is an automated, high-performance platform for forest inventory, crown detection, and canopy area estimation. Designed for speed, memory efficiency, and a premium user experience, the platform processes drone orthomosaics to deliver actionable ecological metrics and exportable GIS deliverables.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <i data-lucide="brain-circuit" class="w-5 h-5 text-primary"></i>
+                        Machine Learning Models
+                    </h3>
+                    <ul class="space-y-3 text-sm text-mutedfg">
+                        <li>
+                            <strong class="text-foreground">DeepForest (RetinaNet)</strong><br>
+                            Used for individual tree stem counting and bounding box detection. It scans the image in overlapping patches to find distinct tree crowns.
+                        </li>
+                        <li>
+                            <strong class="text-foreground">Restor OAM-TCD (Segformer-MIT-B2)</strong><br>
+                            Used for pixel-level canopy coverage estimation. A Vision Transformer that performs semantic segmentation to calculate the exact surface area of the forest.
+                        </li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <i data-lucide="image" class="w-5 h-5 text-primary"></i>
+                        Input Data Requirements
+                    </h3>
+                    <ul class="space-y-3 text-sm text-mutedfg list-disc pl-4">
+                        <li><strong>File Format:</strong> GeoTIFF (<code>.tif</code> or <code>.tiff</code>) with embedded spatial metadata.</li>
+                        <li><strong>Bands:</strong> Standard RGB (3-band).</li>
+                        <li><strong>Resolution:</strong> High-resolution drone imagery (5cm to 50cm per pixel) yields the best crown detection.</li>
+                        <li><strong>File Size:</strong> Tiled inference handles large files, but for snappy API responses on CPU, images between <strong>10MB to 50MB</strong> are recommended.</li>
+                        <li><strong>Boundary (Optional):</strong> A <code>.kml</code> polygon can be uploaded to clip the analysis to a specific boundary.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <i data-lucide="play-circle" class="w-5 h-5 text-primary"></i>
+                    How to Use
+                </h3>
+                <ol class="space-y-2 text-sm text-mutedfg list-decimal pl-4">
+                    <li>Upload your GeoTIFF file in the <strong>Upload Datasets</strong> panel. Optionally, upload a KML boundary.</li>
+                    <li>Adjust the <strong>Detection Confidence</strong> slider. Increase it to eliminate false positives (like bushes); decrease it to detect smaller saplings.</li>
+                    <li>Click <strong>Execute Analysis</strong>. The backend will process the imagery and stream the results back.</li>
+                    <li>Review the KPI metrics, inspect the dual-model overlay, and click <strong>Download .ZIP</strong> to export your GIS deliverables.</li>
+                </ol>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="border-t border-border bg-white/60 backdrop-blur-sm mt-8 py-5 px-8">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-mutedfg">
+            <p>CanopyAI — Tree Crown Detection & Canopy Area Estimation Platform</p>
+            <p>DeepForest (RetinaNet) · Restor OAM-TCD (Segformer) · FastAPI · Tailwind CSS</p>
+        </div>
+    </footer>
+
+    <!-- ========== JAVASCRIPT ========== -->
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Slider live update
+        const slider = document.getElementById('conf-slider');
+        const sliderVal = document.getElementById('conf-val');
+        slider.addEventListener('input', (e) => {
+            sliderVal.textContent = parseFloat(e.target.value).toFixed(2);
+        });
+
+        // Run analysis
+        document.getElementById('run-btn').addEventListener('click', async () => {
+            const imgFile = document.getElementById('img-upload').files[0];
+            const kmlFile = document.getElementById('kml-upload').files[0];
+
+            if (!imgFile) {
+                alert('Please upload a GeoTIFF image first.');
+                return;
+            }
+
+            // Show loading, hide others
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('loading').classList.add('flex');
+
+            // Build form data
+            const formData = new FormData();
+            formData.append('image', imgFile);
+            if (kmlFile) formData.append('kml', kmlFile);
+            formData.append('confidence', slider.value);
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Populate KPI cards
+                document.getElementById('val-count').textContent =
+                    data.metrics.tree_count.toLocaleString() + ' trees';
+                document.getElementById('val-area').textContent =
+                    data.metrics.canopy_area_ha.toFixed(2) + ' ha';
+                document.getElementById('val-area-m2').textContent =
+                    Math.round(data.metrics.canopy_area_m2).toLocaleString() + ' m²';
+                document.getElementById('val-cover').textContent =
+                    data.metrics.canopy_pct.toFixed(1) + '%';
+                document.getElementById('val-density').textContent =
+                    Math.round(data.metrics.stand_density) + ' /ha';
+                document.getElementById('val-health').textContent =
+                    data.metrics.health_status;
+                document.getElementById('val-carbon').textContent =
+                    data.metrics.carbon_seq_tons.toFixed(1) + ' tCO₂';
+
+                // Set overlay image
+                document.getElementById('overlay-img').src = data.image_b64;
+
+                // Set download link
+                document.getElementById('download-btn').href = data.zip_b64;
+
+                // Show results, hide loading
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('loading').classList.remove('flex');
+                document.getElementById('results').classList.remove('hidden');
+
+            } catch (err) {
+                console.error('Analysis failed:', err);
+                alert('Error processing imagery. Check the terminal for details.\n\n' + err.message);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('loading').classList.remove('flex');
+                document.getElementById('empty-state').classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
