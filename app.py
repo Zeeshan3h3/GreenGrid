@@ -206,6 +206,67 @@ with gr.Blocks(
                 label="📦 Download GIS Bundle (.zip)",
             )
 
+    # ---- Documentation Section ----
+    gr.Markdown("---")
+
+    with gr.Row():
+        with gr.Column():
+            gr.Markdown(
+                """
+                ## 🧠 How It Works
+
+                GreenGrid uses a **Dual-Model AI Engine** to extract two complementary layers of information from a single drone image:
+
+                **Step 1 — Upload & Preprocess**
+                Your GeoTIFF is reprojected into the correct UTM zone, resampled to 10cm/pixel, and optionally clipped to a KML boundary polygon.
+
+                **Step 2a — Tree Detection (DeepForest RetinaNet)**
+                A PyTorch object-detection model trained on NEON aerial data scans the image in overlapping 400×400 patches, detecting individual tree crowns as bounding boxes.
+
+                **Step 3a — Canopy Segmentation (Segformer MIT-B2)**
+                A Hugging Face Vision Transformer trained on Open Aerial Map data classifies every single pixel as "canopy" or "non-canopy", producing an exact area measurement.
+
+                **Step 3 — Metric Calculation**
+                Pixel counts × ground resolution² = real-world canopy area in m² and hectares. CO₂ sequestration is estimated at ~0.05 metric tons per m² of canopy.
+
+                **Step 4 — GIS Export**
+                All results are bundled into a downloadable ZIP containing GeoJSON polygons (for QGIS/ArcGIS), a tree inventory CSV, the overlay PNG, and a metrics summary.
+                """
+            )
+
+        with gr.Column():
+            gr.Markdown(
+                """
+                ## 📋 Quick Start Guide
+
+                **1. Upload Your Data**
+                Click the "Orthomosaic (.tif)" box and select a drone-captured GeoTIFF. The file must have embedded spatial metadata (CRS + Transform). RGB, 3-band images work best.
+
+                **2. (Optional) Add a Boundary**
+                Upload a `.kml` polygon to restrict analysis to a specific area. If omitted, the entire image bounding box is analyzed.
+
+                **3. Adjust Confidence**
+                The slider controls how strict tree detection is:
+                - **Higher (0.6–0.9)** → Only high-confidence trees, fewer false positives
+                - **Lower (0.1–0.3)** → Catches small saplings, but may include bushes
+
+                **4. Click Execute Analysis**
+                The platform processes the image through both neural networks and displays results in ~30–60 seconds.
+
+                **5. Download Results**
+                Click the ZIP file to get a complete GIS package you can import directly into QGIS, ArcGIS, or Google Earth Pro.
+
+                ---
+                ### 📁 Recommended Input Specs
+                | Parameter | Recommendation |
+                |---|---|
+                | **Format** | GeoTIFF (.tif / .tiff) |
+                | **Bands** | RGB (3-band) |
+                | **Resolution** | 5cm – 50cm GSD |
+                | **File Size** | 10MB – 50MB for best speed |
+                """
+            )
+
     # Footer
     gr.Markdown(
         """
